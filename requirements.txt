@@ -1,0 +1,7 @@
+python-dotenv
+ollama
+numpy
+requests
+umap-learn
+hdbscan
+scikit-learn
