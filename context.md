@@ -17,12 +17,28 @@
 | Labeling (`label.py`) | 202 zhlukov pomenovaných cez llama3.1:8b, ~9 min |
 | Noise | 3 242 emailov (25 %) nezaradených do žiadneho zhluku |
 
-### Fáza 3 — PLÁNOVANÁ
-Retrieval vrstva — multi-signal vyhľadávanie:
-- FTS5 (full-text search na subject + body_text)
-- Vektorové vyhľadávanie (cosine similarity nad embeddingy)
-- Cluster-based retrieval (emaily z rovnakého zhluku)
-- Thread-based (vlákna cez in_reply_to / references)
+### Fáza 3 — ROZPRACOVANÁ (`src/search.py`)
+| Signál | Váha | Stav |
+|---|---|---|
+| FTS5 (subject + body_text, unicode61 remove_diacritics) | 0.3 | hotový |
+| Vektorové (cosine similarity, nomic-embed-text) | 0.5 | hotový |
+| Cluster centroid (top 3 clustre, decay 1.0/0.7/0.5) | 0.2 | hotový |
+| Thread expansion (vlákna cez thread_id) | — | hotový |
+| Person expansion (seed osoby ±90 dní, context filter 0.75) | — | hotový |
+| Noise penalty (cluster_id IS NULL → −0.1) | — | hotový |
+
+Spustenie: `python -m src.search "query" --min-score 0.55 --expand-persons`
+
+#### Zistený problém — Patronka/2202
+- 160 emailov spomína Patronku alebo kód 2202, search vracia iba 2–4
+- **Príčina**: clustering sledoval osobu (palkov@jtre.sk), nie projekt → zhluk "Palkovovi" (30 emailov), nie projekt-orientovaný zhluk
+- Rozdelenie 160 emailov: Palkovovi=30, noise=21, Westend Karlova Ves=17, Westend=14, ...
+- **Riešenie**: boosted FTS pre explicitné projektové kódy/mená (implementovať)
+
+#### Ďalší kroky (TODO)
+1. **Boosted FTS** — zvýšiť váhu FTS pre krátke explicitné kódy (`2202`, `Patronka`) aby prekonali slabý cluster signal
+2. **NULL noise fix** — query `cluster_id = -1` vracia 0; noise je `cluster_id IS NULL` — opraviť dokumentáciu/query
+3. `--expand-persons` threshold 0.65 funguje dobre pre filtrovanie falošných pozitív
 
 ### Poznámky do budúcnosti
 - **Porovnanie embedding modelov**: otestovať `mxbai-embed-large`, `all-minilm` a porovnať kvalitu clusteringu vs. `nomic-embed-text`
