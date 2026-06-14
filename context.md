@@ -47,8 +47,45 @@ Clustering sleduje komunikačného partnera (osobu), nie projekt. Pre "Patronka 
 - Riešenie: Vrstva 4 — extrakcia textu z príloh
 
 #### Ďalší kroky (TODO)
-1. **Extrakcia osôb a rolí** — identifikovať kto je kto v komunikácii (architekt, investor, dodávateľ)
+1. **Dotazovanie nad grafom** — zadáš tému, systém vráti celú komunitu vrátane alternatívnych mien projektu
 2. **Analýza príloh** — extrakcia textu z PDF/DOCX/XLSX → vyrieši zvyšných 112 Patronka emailov
+
+### Graf entít (`src/graph.py`) — vyčistená verzia prijatá
+
+Graf osoby-koho-výskyt zo všetkých emailov (918 uzlov, 15 951 hrán). Community detection: Louvain s váženými hranami.
+
+**Kľúčové rozhodnutie — `--exclude-hubs N`:**
+Vlastník schránky (`tupek@gfi.sk`, centralita 0.945) a hyper-prepojení interní ľudia spájajú všetko so všetkým, čím zabraňujú emergovaniu projektových komunít. Riešenie: vylúčiť top-N uzlov podľa degree centrality pred community detection (vždy vrátane `tupek@gfi.sk`).
+
+**Porovnanie BEH A (bez vylúčenia) vs BEH B (`--exclude-hubs 10`):**
+
+| Metrika | BEH A | BEH B |
+|---|---|---|
+| Komunít (min. 3 osoby) | 8 | 11 |
+| Najväčšia komunita | **377 osôb** (kaša) | **160 osôb** |
+| Westend komunita | neexistovala | **85 osôb** — kois + surmova/bratko/kalman (jtre.sk) |
+| Eurovea+Tower | 60 osôb, spojené | **59 osôb, zachované** — kastan/blaho/hostacna + kcap.eu |
+
+**Nájdené komunity v BEH B (výber):**
+
+| Komunita | Veľkosť | Témy | Ext. domény |
+|---|---|---|---|
+| GFI interná + mix | 160 | mix naprieč projektmi | — |
+| MSH / Pasienky / Helios | 119 | pasienky, hala, msh, volejbal | jtre.sk(19), esotech.sk |
+| Marketing / HR / Forbes | 113 | kniha, web, forbes, pozvánky | gmail, 2create |
+| **Westend rezidencia** | **85** | **westend, rezidencia, EIA** | **jtre.sk(26)** |
+| Nové Lido / Černyševského | 81 | lido, nove, černyševského | jtre.sk(31), compass.sk(15) |
+| **One Eurovea + Tower 220** | **59** | **eurovea, one, tower, kcap** | **kcap.eu(12), jtre.sk(11)** |
+| AE7 inžinierska firma | 38 | needle, daylight, competition | ae7.com(26) |
+| Utopia / malý ateliér | 23 | utopia, kremenec, atlas | stuba.sk, atlas.design |
+| SKGBC newslettery | 21 | skgbc, green, pozvánky | skgbc.org(7) |
+
+**Kľúčové zistenia:**
+- Eurovea a Tower 220 sú jeden projekt pod dvoma menami — potvrdené grafom (spoločný investor JTRE: kastan/blaho/hostacna, spoločná architektonická firma KCAP)
+- Westend vynorila až po vylúčení hubov — predtým pohltená catch-all komunita
+- Zvyšných 160 v najväčšej komunite = ľudia reálne aktívni naprieč projektmi (nie chyba grafu)
+
+Spustenie: `python -m src.graph --exclude-hubs 10`
 
 ### Poznámky do budúcnosti
 - **Porovnanie embedding modelov**: otestovať `mxbai-embed-large`, `all-minilm` a porovnať kvalitu clusteringu vs. `nomic-embed-text`

@@ -205,6 +205,36 @@ def detect_communities(G: nx.Graph) -> list:
     return coms
 
 
+# ── hub pruning ──────────────────────────────────────────────────────────────
+
+ALWAYS_EXCLUDE = frozenset({"tupek@gfi.sk"})
+
+
+def prune_hubs(G: nx.Graph, n: int) -> nx.Graph:
+    """Remove top-n nodes by degree centrality + ALWAYS_EXCLUDE set.
+
+    Returns a copy of G with those nodes removed.
+    """
+    centrality = nx.degree_centrality(G)
+    top_n = {p for p, _ in sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:n]}
+    to_remove = (top_n | ALWAYS_EXCLUDE) & set(G.nodes())
+
+    print(f"\n  Vylucene huby ({len(to_remove)}):")
+    for p in sorted(to_remove, key=lambda x: centrality.get(x, 0), reverse=True):
+        print(
+            f"    {p:<42}  centralita={centrality.get(p, 0):.4f}"
+            f"  weighted_deg={G.degree(p, weight='weight'):.0f}"
+        )
+
+    H = G.copy()
+    H.remove_nodes_from(to_remove)
+    print(
+        f"  Graf po vyluceni: {H.number_of_nodes()} uzlov  |  "
+        f"{H.number_of_edges()} hran"
+    )
+    return H
+
+
 # ── community analysis ────────────────────────────────────────────────────────
 
 def _top_words(subjects: list[str], n: int = 12) -> list[tuple[str, int]]:
@@ -312,6 +342,8 @@ def main() -> None:
                         help=f"Min community size (default {MIN_COMMUNITY_SIZE})")
     parser.add_argument("--show-members",  action="store_true",
                         help="Print all members of each community")
+    parser.add_argument("--exclude-hubs",  type=int, default=0,
+                        help="Exclude top N hub nodes before community detection (0 = off)")
     args = parser.parse_args()
 
     MIN_EDGE_WEIGHT    = args.min_weight
@@ -319,6 +351,10 @@ def main() -> None:
 
     print("=== Graf entit ===")
     G, meta = build_graph(args.db)
+
+    if args.exclude_hubs > 0:
+        print(f"\n=== Pruning top-{args.exclude_hubs} hubov + always {list(ALWAYS_EXCLUDE)} ===")
+        G = prune_hubs(G, args.exclude_hubs)
 
     print("\n=== Detekcia komunít ===")
     raw  = detect_communities(G)
