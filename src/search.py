@@ -97,8 +97,11 @@ def _fts_search(conn, query: str) -> dict[int, float]:
     ranks = [r[1] for r in rows]
     best, worst = min(ranks), max(ranks)
     if best == worst:
-        return {int(r[0]): 1.0 for r in rows}
-    return {int(r[0]): (r[1] - worst) / (best - worst) for r in rows}
+        rank_scores = {int(r[0]): 1.0 for r in rows}
+    else:
+        rank_scores = {int(r[0]): (r[1] - worst) / (best - worst) for r in rows}
+    # match_score=1.0 for any FTS hit; rank refines within matches
+    return {eid: 0.7 + 0.3 * rank_scores[eid] for eid in rank_scores}
 
 
 # ── embeddings matrix ─────────────────────────────────────────────────────────

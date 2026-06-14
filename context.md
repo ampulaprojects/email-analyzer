@@ -2,7 +2,7 @@
 
 ---
 
-## AKTUÁLNY STAV — 2026-06-09
+## AKTUÁLNY STAV — 2026-06-14
 
 ### Fáza 1 — HOTOVÁ
 - 12 949 emailov stiahnutých (INBOX + Sent Items, posledné 2 roky)
@@ -17,7 +17,7 @@
 | Labeling (`label.py`) | 202 zhlukov pomenovaných cez llama3.1:8b, ~9 min |
 | Noise | 3 242 emailov (25 %) nezaradených do žiadneho zhluku |
 
-### Fáza 3 — ROZPRACOVANÁ (`src/search.py`)
+### Fáza 3 — FUNKČNÝ ZÁKLAD HOTOVÝ (`src/search.py`)
 | Signál | Váha | Stav |
 |---|---|---|
 | FTS5 (subject + body_text, unicode61 remove_diacritics) | 0.3 | hotový |
@@ -29,20 +29,56 @@
 
 Spustenie: `python -m src.search "query" --min-score 0.55 --expand-persons`
 
-#### Zistený problém — Patronka/2202
-- 160 emailov spomína Patronku alebo kód 2202, search vracia iba 2–4
-- **Príčina**: clustering sledoval osobu (palkov@jtre.sk), nie projekt → zhluk "Palkovovi" (30 emailov), nie projekt-orientovaný zhluk
-- Rozdelenie 160 emailov: Palkovovi=30, noise=21, Westend Karlova Ves=17, Westend=14, ...
-- **Riešenie**: boosted FTS pre explicitné projektové kódy/mená (implementovať)
+#### FTS oprava — 0.7 × match + 0.3 × rank
+Pôvodná rank-normalizácia: email s jedným výskytom kľúčového slova dostával BM25 score 0.003–0.140 (medián 0.133). Oprava: každý FTS hit dostane minimálne 0.7 (prítomnosť výrazu = silný signál), BM25 rank len jemne zoraďuje v rámci zhôd.
+
+Výsledok na Patronka/2202 (162 emailov):
+- Pred: 8 emailov nad prahom 0.55 (4 %)
+- Po: 50 emailov nad prahom (30 %)
+- FTS medián: 0.133 → 0.740; FINAL medián: 0.358 → 0.535
+- Sémantické dotazy bez kľúčových slov nie sú ovplyvnené
+
+#### Známe obmedzenie — cluster signal pre projektové dotazy
+Clustering sleduje komunikačného partnera (osobu), nie projekt. Pre "Patronka 2202" ukazuje top-3 centroidy na Tower 220 / Správa 2604 / Westend KV — nie na Palkovovi ani Revitalizácia kde väčšina emailov skutočne je. Väčšina dostane CLU=0.000.
+
+#### Zvyšných 112 Patronka emailov pod prahom
+- Kód "2202" sa vyskytuje len v ceste prílohy (`U:\2202 Patronka\...`) — body_text je prázdny alebo bez kontextu
+- Meeting invites/calendar bez textového tela
+- Riešenie: Vrstva 4 — extrakcia textu z príloh
 
 #### Ďalší kroky (TODO)
-1. **Boosted FTS** — zvýšiť váhu FTS pre krátke explicitné kódy (`2202`, `Patronka`) aby prekonali slabý cluster signal
-2. **NULL noise fix** — query `cluster_id = -1` vracia 0; noise je `cluster_id IS NULL` — opraviť dokumentáciu/query
-3. `--expand-persons` threshold 0.65 funguje dobre pre filtrovanie falošných pozitív
+1. **Extrakcia osôb a rolí** — identifikovať kto je kto v komunikácii (architekt, investor, dodávateľ)
+2. **Analýza príloh** — extrakcia textu z PDF/DOCX/XLSX → vyrieši zvyšných 112 Patronka emailov
 
 ### Poznámky do budúcnosti
 - **Porovnanie embedding modelov**: otestovať `mxbai-embed-large`, `all-minilm` a porovnať kvalitu clusteringu vs. `nomic-embed-text`
 - 25 % noise je relatívne vysoké — vyskúšať `--min-cluster-size 10` pre menej noise
+
+---
+
+## 2026-06-14 — search.py — person expansion + diagnostics
+
+### Čo bolo urobené
+- Pridaný `--expand-persons` režim do `src/search.py`:
+  - Seed osoby z priamych výsledkov (from_address + to_addresses)
+  - Časové okno ±90 dní od rozsahu priamych výsledkov
+  - Filter: ≥2 spoločné osoby medzi emailom a seedmi
+  - **Kontextový filter**: cosine similarity s centroidom priamych výsledkov > 0.75
+  - `person_expanded=True` flag v `_fetch_details` výstupe
+- Diagnostika pre problém Patronka/2202:
+  - 160 emailov s keywords, roztrúsených v 19 rôznych zhlukoch
+  - 30 v "Palkovovi" (osoba-orientovaný zhluk), 21 noise, zvyšok v malých fragmentoch
+  - Záver: clustering ide podľa komunikačného partnera, nie projektu → boosted FTS nutný
+
+### Stav po session
+- `src/search.py` plne funkčný so všetkými signálmi
+- 2 commity na GitHub (ampulaprojects/email-analyzer):
+  - `fa4b952` — phase 2 complete - body fetch, embeddings, clustering, labels
+  - `e58e464` — phase 3 wip - search.py with thread + person expansion
+
+### Ďalší krok
+**Boosted FTS** — pre krátke explicitné projektové kódy (`2202`) a vlastné mená (`Patronka`)
+dočasne zvýšiť váhu FTS tak, aby lexikálna zhoda prekonala slabý cluster signal.
 
 ---
 
