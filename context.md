@@ -2,7 +2,7 @@
 
 ---
 
-## AKTUÁLNY STAV — 2026-06-14
+## AKTUÁLNY STAV — 2026-06-14 (večer)
 
 ### Fáza 1 — HOTOVÁ
 - 12 949 emailov stiahnutých (INBOX + Sent Items, posledné 2 roky)
@@ -47,7 +47,10 @@ Clustering sleduje komunikačného partnera (osobu), nie projekt. Pre "Patronka 
 - Riešenie: Vrstva 4 — extrakcia textu z príloh
 
 #### Ďalší kroky (TODO)
-1. **Dotazovanie nad grafom** — zadáš tému, systém vráti celú komunitu vrátane alternatívnych mien projektu
+1. **`src/ask.py`** — dotazovanie nad vyčisteným grafom (zajtra):
+   - `graph.py` uloží BEH B výsledok do `data/communities.json`
+   - `ask.py`: search → osoby → komunita → vráti identitu, alternatívne mená projektu, ľudí s rolami, časový rozsah
+   - test: "Eurovea" má vrátiť Tower 220, "Tower 220" Eurovea, "Westend", "Patronka 2202"
 2. **Analýza príloh** — extrakcia textu z PDF/DOCX/XLSX → vyrieši zvyšných 112 Patronka emailov
 
 ### Graf entít (`src/graph.py`) — vyčistená verzia prijatá
