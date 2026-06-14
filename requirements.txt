@@ -5,3 +5,5 @@ requests
 umap-learn
 hdbscan
 scikit-learn
+networkx
+python-louvain
