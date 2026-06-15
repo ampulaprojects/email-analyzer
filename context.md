@@ -2,7 +2,7 @@
 
 ---
 
-## AKTUÁLNY STAV — 2026-06-14 (večer)
+## AKTUÁLNY STAV — 2026-06-15
 
 ### Fáza 1 — HOTOVÁ
 - 12 949 emailov stiahnutých (INBOX + Sent Items, posledné 2 roky)
@@ -47,11 +47,50 @@ Clustering sleduje komunikačného partnera (osobu), nie projekt. Pre "Patronka 
 - Riešenie: Vrstva 4 — extrakcia textu z príloh
 
 #### Ďalší kroky (TODO)
-1. **`src/ask.py`** — dotazovanie nad vyčisteným grafom (zajtra):
-   - `graph.py` uloží BEH B výsledok do `data/communities.json`
-   - `ask.py`: search → osoby → komunita → vráti identitu, alternatívne mená projektu, ľudí s rolami, časový rozsah
-   - test: "Eurovea" má vrátiť Tower 220, "Tower 220" Eurovea, "Westend", "Patronka 2202"
+1. ~~**`src/ask.py`**~~ — **HOTOVÉ** (2026-06-15) — viď sekcia nižšie
 2. **Analýza príloh** — extrakcia textu z PDF/DOCX/XLSX → vyrieši zvyšných 112 Patronka emailov
+
+### `src/ask.py` — dotazovanie nad grafom komunít — HOTOVÉ
+
+**Míľnik:** pôvodný cieľ "nájdi projekt aj pod iným menom + kto sú ľudia a ich rola" je splnený.
+
+**Retrieval stack:**
+```
+search.py  (FTS + VEC + CLU)
+    ↓ email_ids
+persons.py  (analyze_persons)
+    ↓ osoby s rolami
+ask.py  (mapovanie na data/communities.json)
+    ↓ dominantná komunita
+VÝSTUP: IDENTITA · ALTERNATÍVNE MENÁ · ĽUDIA · ROZSAH
+```
+
+**Kľúčové vlastnosti:**
+- Načítava `data/communities.json` — neprepočítava graf pri každom dotaze
+- Váhuje komunity podľa email_count naprieč matchnutými osobami
+- Zobrazuje: témy, externé domény, ľudí z dotazu (top-centralita + aktívny tag), top-5 grafu, ďalšie komunity s hitmi
+
+**Testovacie výsledky:**
+
+| Dotaz | Komunita | Skóre | Ľudia |
+|---|---|---|---|
+| "Eurovea" | #6 — One Eurovea + Tower 220 | 449 | matis/talas (INT), blaho/kastan/hostacna (jtre.sk) |
+| "Tower 220" | #6 — tá istá komunita | 355 | talas/matis (INT), blaho/kastan/hostacna (jtre.sk) |
+| "Westend" | #4 — Westend rezidencia | 709 | palkov (jtre.sk), kois/bryndza (INT), surmova/kalman (jtre.sk) |
+| "Patronka 2202" | #4 — Westend | 230 | kois/bryndza (INT), palkov/surmova (jtre.sk) |
+
+**Kľúčové zistenia:**
+- Eurovea ↔ Tower 220: vzájomne vracajú tú istú komunitu #6 — jeden projekt, dve mená potvrdené
+- Patronka 2202 → komunita #4 (Westend) — prepojenie cez zdieľané osoby (palkov, kois, surmova), nie cez meno/kód
+- "Alternatívne mená" = top_words nad prahom `n_emails / 40` — pre Eurovea vracia: eurovea · one · tower · kcap · meeting · lido · ihla
+
+**Spustenie:**
+```bash
+python -m src.ask "Eurovea"
+python -m src.ask "Patronka 2202" --min-score 0.45
+```
+
+---
 
 ### Graf entít (`src/graph.py`) — vyčistená verzia prijatá
 
