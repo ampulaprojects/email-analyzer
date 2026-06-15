@@ -4,11 +4,32 @@
 
 ## AKTUÁLNY STAV — 2026-06-15
 
+### Rozšírenie na plný dataset — ROZPRACOVANÉ
+
+Cieľ: 12 949 → 40 562 mailov (INBOX + Sent Items od 2018/2019). Baseline zachovaná v `data/emails_12k_baseline.db` + `data/baseline_12k.json`.
+
+| Krok | Výsledok | Stav |
+|---|---|---|
+| Backfill INBOX | +20 549 emailov (2018–2024) | ✓ |
+| Backfill Sent Items | +6 864 emailov (2018–2024) | ✓ |
+| body_fetch (27 615 nových) | ok=40 165, empty=397, rozsah 2018–2026 | ✓ |
+| embed (27 615 nových, workers=16) | ok=40 556/40 562, 6 chýb, 96 min | ✓ |
+| cluster (40 556 vektorov) | 549 zhlukov, noise 25.6%, 51 s | ✓ |
+| label (549 zhlukov) | **ROZPRACOVANÝ** — resume-safe, prerušený UnicodeError (opravený) | ⏳ |
+
+**Pokračovanie:** `python -m src.label` (preskočí už olabelované)
+
+**Ďalší kroky:**
+1. Dokončiť `python -m src.label`
+2. Súhrn clusteringu vs 12k baseline
+3. `python -m src.graph --exclude-hubs 10` na 40k
+4. `python -m src.snapshot` → porovnanie s `data/baseline_12k.json`
+
 ### Fáza 1 — HOTOVÁ
 - 12 949 emailov stiahnutých (INBOX + Sent Items, posledné 2 roky)
 - Metadáta: hlavičky, vlákna, prílohy (heuristika), jazyk
 
-### Fáza 2 — HOTOVÁ
+### Fáza 2 — HOTOVÁ (12k baseline)
 | Krok | Výsledok |
 |---|---|
 | Body fetch (`body_fetch.py`) | 12 824 / 12 949 emailov má `body_text` |
@@ -132,6 +153,44 @@ Spustenie: `python -m src.graph --exclude-hubs 10`
 ### Poznámky do budúcnosti
 - **Porovnanie embedding modelov**: otestovať `mxbai-embed-large`, `all-minilm` a porovnať kvalitu clusteringu vs. `nomic-embed-text`
 - 25 % noise je relatívne vysoké — vyskúšať `--min-cluster-size 10` pre menej noise
+
+---
+
+## 2026-06-15 — Rozšírenie datasetu 12k → 40k
+
+### Čo bolo urobené
+- `src/sync.py` rozšírený o `--backfill` režim:
+  - `SEARCH ALL` → odčíta `imap_uid` z DB → stiahne len chýbajúce
+  - Resume-safe: pri reštarte prepočíta chýbajúce UIDs z DB
+  - `last_uid` watermark sa nesnižuje — inkrementálny sync funguje po backfille
+- `data/emails_12k_baseline.db` — kópia pred rozšírením (nikdy nemodifikovať)
+- `data/baseline_12k.json` — snapshot stavu 12k (DB štatistiky + výsledky 4 referenčných dotazov)
+- `src/snapshot.py` — generuje JSON snapshot pre porovnanie
+- `diag_imap.py` — diagnostický skript (root, necommitnutý): porovnáva server vs DB bez sťahovania
+
+### Výsledky backfillu
+| Folder | Pred | Pridané | Celkom |
+|---|---|---|---|
+| INBOX | 12 949 | 20 549 | 33 498 |
+| Sent Items | (z 12 949) | 6 864 | ~40 k |
+| **SPOLU** | **12 949** | **27 413** | **40 562** |
+
+Rozsah: 2018-02-13 – 2026-06-15. 0 duplikátov (`INSERT OR IGNORE` na `message_id`).
+
+### Clustering 12k → 40k porovnanie
+| Metrika | 12k baseline | 40k |
+|---|---|---|
+| Emailov so embeddingy | 12 587 | 40 556 |
+| Počet zhlukov | 202 | 549 |
+| Noise | 25.0 % | 25.6 % |
+| Parametre | min_cluster_size=15, min_samples=5 | rovnaké |
+| Top cluster | 336 emailov | 826 emailov |
+
+Noise stabilný = parametre konzistentné naprieč 3× väčším datasetom.
+
+### Oprava label.py
+`UnicodeEncodeError` pri printovaní slovenských znakov na Windows (cp1250 terminál).
+Oprava: UTF-8 stdout override na štarte skriptu (rovnaký vzor ako `diag_imap.py`).
 
 ---
 

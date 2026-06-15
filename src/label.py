@@ -9,6 +9,9 @@ import sys
 import time
 from datetime import datetime, timezone
 
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1)
+
 import requests
 from dotenv import load_dotenv
 
