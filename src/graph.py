@@ -318,6 +318,39 @@ def print_communities(results: list[dict]) -> None:
             print(f"  Temy        : {words}")
 
 
+def save_communities(results: list[dict], path: str) -> None:
+    """Write community detection results to JSON for use by ask.py."""
+    import json as _json
+
+    communities = []
+    person_to_community: dict[str, int] = {}
+
+    for i, c in enumerate(results):
+        communities.append({
+            "id":        i,
+            "size":      c["size"],
+            "n_int":     c["n_int"],
+            "n_ext":     c["n_ext"],
+            "members":   sorted(c["members"]),
+            "top5":      c["top5"],
+            "ext_doms":  c["ext_doms"],   # already list[tuple] → serialises as list[list]
+            "top_words": c["top_words"],  # same
+            "first":     c["first"],
+            "last":      c["last"],
+            "n_emails":  c["n_emails"],
+        })
+        for person in c["members"]:
+            person_to_community[person] = i
+
+    payload = {"communities": communities, "person_to_community": person_to_community}
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        _json.dump(payload, fh, ensure_ascii=False, indent=2)
+
+    print(f"  Ulozene: {path}  ({len(communities)} komunít, {len(person_to_community)} osob)")
+
+
 def print_members(results: list[dict]) -> None:
     print(f"\n{'=' * 72}")
     print("  CLENOVIA KOMUNÍT")
@@ -344,6 +377,8 @@ def main() -> None:
                         help="Print all members of each community")
     parser.add_argument("--exclude-hubs",  type=int, default=0,
                         help="Exclude top N hub nodes before community detection (0 = off)")
+    parser.add_argument("--output",        default=None,
+                        help="Save communities to JSON (e.g. data/communities.json)")
     args = parser.parse_args()
 
     MIN_EDGE_WEIGHT    = args.min_weight
@@ -362,6 +397,10 @@ def main() -> None:
     print(f"  Po filtraci (>= {MIN_COMMUNITY_SIZE}): {len(coms)} komunít")
 
     print_communities(coms)
+
+    if args.output:
+        print(f"\n=== Ukladam do {args.output} ===")
+        save_communities(coms, args.output)
 
     if args.show_members:
         print_members(coms)
