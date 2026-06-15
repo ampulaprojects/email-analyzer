@@ -155,6 +155,15 @@ def _get_last_uid(conn, folder: str) -> int:
     return row["last_uid"] if row else 0
 
 
+def _get_known_uids(conn, folder: str) -> set[int]:
+    """Return all imap_uid values already stored in DB for this folder."""
+    rows = conn.execute(
+        "SELECT imap_uid FROM emails WHERE folder = ? AND imap_uid IS NOT NULL",
+        (folder,),
+    ).fetchall()
+    return {r["imap_uid"] for r in rows}
+
+
 def _save_sync_state(conn, folder: str, last_uid: int) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     conn.execute("""
@@ -249,6 +258,7 @@ def sync_folder(
     folder: str,
     limit: int | None = None,
     since: str | None = None,
+    backfill: bool = False,
 ) -> dict:
     err_log = _error_logger(DB_PATH)
     stats = {"inserted": 0, "skipped": 0, "errors": 0, "folder": folder}
@@ -259,19 +269,36 @@ def sync_folder(
         return stats
 
     last_uid = _get_last_uid(conn, folder)
-    all_uids = _search_new_uids(imap, last_uid, since=since)
+
+    if backfill:
+        # Fetch ALL UIDs from server, subtract what we already have in DB.
+        # Resume-safe: on restart, known_uids grows and we skip already-fetched.
+        status2, data = imap.uid("SEARCH", None, "ALL")
+        if status2 != "OK" or not data or data[0] == b"":
+            server_uids: list[int] = []
+        else:
+            server_uids = sorted(int(u) for u in data[0].split())
+
+        known_uids = _get_known_uids(conn, folder)
+        all_uids   = [u for u in server_uids if u not in known_uids]
+        log.info(
+            "%-30s  backfill: %d on server, %d in DB, %d to fetch",
+            folder, len(server_uids), len(known_uids), len(all_uids),
+        )
+    else:
+        all_uids = _search_new_uids(imap, last_uid, since=since)
 
     if limit:
         all_uids = all_uids[:limit]
 
     total = len(all_uids)
     if total == 0:
-        log.info("%-30s  up to date (last_uid=%d)", folder, last_uid)
+        log.info("%-30s  nothing to fetch (last_uid=%d)", folder, last_uid)
         return stats
 
-    log.info("%-30s  %d new UIDs to fetch (last_uid=%d)", folder, total, last_uid)
+    log.info("%-30s  %d UIDs to fetch", folder, total)
 
-    processed = 0
+    processed      = 0
     batch_last_uid = last_uid
 
     for batch_start in range(0, total, BATCH_SIZE):
@@ -306,10 +333,12 @@ def sync_folder(
                 stats["errors"] += 1
 
         conn.commit()
-        _save_sync_state(conn, folder, batch_last_uid)
+        # In backfill mode: only advance last_uid if we saw a higher UID than before
+        # (never lower the watermark — incremental sync must still work after backfill)
+        if not backfill or batch_last_uid > last_uid:
+            _save_sync_state(conn, folder, batch_last_uid)
 
         processed += len(batch)
-        total_so_far = stats["inserted"] + stats["skipped"]
         log.info("[%d/%d] %s  (+%d inserted, %d skipped, %d errors)",
                  processed, total, folder,
                  stats["inserted"], stats["skipped"], stats["errors"])
@@ -325,7 +354,10 @@ def main() -> None:
     parser.add_argument("--limit",  type=int, help="Max UIDs to fetch per folder (for testing)")
     parser.add_argument("--since",  default="2024-06-08",
                         help="Fetch emails since this date for first sync, format YYYY-MM-DD (default: 2024-06-08)")
-    parser.add_argument("--list",   action="store_true", help="List available folders and exit")
+    parser.add_argument("--list",     action="store_true", help="List available folders and exit")
+    parser.add_argument("--backfill", action="store_true",
+                        help="Fetch ALL UIDs in folder, skipping what is already in DB "
+                             "(ignores --since and last_uid; safe to interrupt and resume)")
     args = parser.parse_args()
 
     init_db(DB_PATH)
@@ -357,11 +389,19 @@ def main() -> None:
             else:
                 log.warning("Folder %r not found on server — skipping", target)
 
-    log.info("Date filter for first sync: SINCE %s", args.since)
+    if args.backfill:
+        log.info("Mode: BACKFILL (fetches all missing UIDs, skips existing by message_id)")
+    else:
+        log.info("Date filter for first sync: SINCE %s", args.since)
 
     all_stats: list[dict] = []
     for folder in folders_to_sync:
-        stats = sync_folder(imap, conn, folder, limit=args.limit, since=args.since)
+        stats = sync_folder(
+            imap, conn, folder,
+            limit    = args.limit,
+            since    = args.since,
+            backfill = args.backfill,
+        )
         all_stats.append(stats)
 
     imap.logout()
