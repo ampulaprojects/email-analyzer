@@ -1,5 +1,7 @@
 .env
-data/
+data/*
+!data/baseline_*.json
+!data/communities.json
 *.db
 __pycache__/
 .venv/

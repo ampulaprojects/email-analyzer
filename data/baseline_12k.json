@@ -1,0 +1,584 @@
+{
+  "created_at": "2026-06-15T16:37:41.219207+00:00",
+  "db_path": "data/emails.db",
+  "communities_path": "data/communities.json",
+  "db_stats": {
+    "total_emails": 12949,
+    "with_body_text": 12876,
+    "with_embedding": 12947,
+    "total_clusters": 202
+  },
+  "top_clusters": [
+    {
+      "id": 129,
+      "label": "MSH Projektovanie a výstavba",
+      "size": 336
+    },
+    {
+      "id": 191,
+      "label": "GFI klub",
+      "size": 280
+    },
+    {
+      "id": 82,
+      "label": "FORBES",
+      "size": 267
+    },
+    {
+      "id": 107,
+      "label": "GFI",
+      "size": 257
+    },
+    {
+      "id": 161,
+      "label": "Grossling Team",
+      "size": 205
+    },
+    {
+      "id": 4,
+      "label": "Zamestovanie 2.0",
+      "size": 189
+    },
+    {
+      "id": 51,
+      "label": "Westend EIA",
+      "size": 178
+    },
+    {
+      "id": 43,
+      "label": "Palkovovi",
+      "size": 167
+    },
+    {
+      "id": 195,
+      "label": "Volejbalisti",
+      "size": 167
+    },
+    {
+      "id": 96,
+      "label": "Cernysevskeho-Overovacia-studia",
+      "size": 162
+    }
+  ],
+  "communities": {
+    "total": 11,
+    "largest_size": 167,
+    "list": [
+      {
+        "id": 0,
+        "size": 167,
+        "n_int": 86,
+        "n_ext": 81,
+        "top_words": [
+          "gfi",
+          "lido",
+          "eurovea",
+          "nove",
+          "finch",
+          "info"
+        ],
+        "ext_doms": [
+          [
+            "gmail.com",
+            29
+          ],
+          [
+            "jurist.sk",
+            5
+          ],
+          [
+            "umbrasolutions.eu",
+            4
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 3259
+      },
+      {
+        "id": 1,
+        "size": 113,
+        "n_int": 13,
+        "n_ext": 100,
+        "top_words": [
+          "gfi",
+          "kniha",
+          "web",
+          "accepted",
+          "projektov",
+          "príspevok"
+        ],
+        "ext_doms": [
+          [
+            "gmail.com",
+            20
+          ],
+          [
+            "2create.sk",
+            5
+          ],
+          [
+            "jtre.sk",
+            4
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 4418
+      },
+      {
+        "id": 2,
+        "size": 91,
+        "n_int": 8,
+        "n_ext": 83,
+        "top_words": [
+          "pasienky",
+          "hala",
+          "msh",
+          "eurovea",
+          "pas",
+          "volejbalova"
+        ],
+        "ext_doms": [
+          [
+            "jtre.sk",
+            17
+          ],
+          [
+            "gmail.com",
+            7
+          ],
+          [
+            "esotech.sk",
+            5
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 1684
+      },
+      {
+        "id": 3,
+        "size": 86,
+        "n_int": 8,
+        "n_ext": 78,
+        "top_words": [
+          "lido",
+          "nove",
+          "helios",
+          "černyševského",
+          "gfi",
+          "accepted"
+        ],
+        "ext_doms": [
+          [
+            "jtre.sk",
+            32
+          ],
+          [
+            "compass.sk",
+            15
+          ],
+          [
+            "gmail.com",
+            7
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 2086
+      },
+      {
+        "id": 4,
+        "size": 76,
+        "n_int": 7,
+        "n_ext": 69,
+        "top_words": [
+          "westend",
+          "helios",
+          "rezidencia",
+          "vizualizacie",
+          "poslal",
+          "zprávu"
+        ],
+        "ext_doms": [
+          [
+            "jtre.sk",
+            27
+          ],
+          [
+            "gmail.com",
+            9
+          ],
+          [
+            "iconsulting.sk",
+            4
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 1650
+      },
+      {
+        "id": 5,
+        "size": 71,
+        "n_int": 5,
+        "n_ext": 66,
+        "top_words": [
+          "eurovea",
+          "gfi",
+          "projekty",
+          "vyber",
+          "profesií",
+          "westend"
+        ],
+        "ext_doms": [
+          [
+            "gmail.com",
+            7
+          ],
+          [
+            "simulaciebudov.sk",
+            6
+          ],
+          [
+            "prodis.sk",
+            4
+          ]
+        ],
+        "first": "2024-09",
+        "last": "2026-06",
+        "n_emails": 266
+      },
+      {
+        "id": 6,
+        "size": 63,
+        "n_int": 4,
+        "n_ext": 59,
+        "top_words": [
+          "eurovea",
+          "one",
+          "tower",
+          "gfi",
+          "kcap",
+          "meeting"
+        ],
+        "ext_doms": [
+          [
+            "kcap.eu",
+            12
+          ],
+          [
+            "jtre.sk",
+            11
+          ],
+          [
+            "gmail.com",
+            7
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 1294
+      },
+      {
+        "id": 7,
+        "size": 35,
+        "n_int": 2,
+        "n_ext": 33,
+        "top_words": [
+          "eurovea",
+          "one",
+          "tower",
+          "meeting",
+          "model",
+          "needle"
+        ],
+        "ext_doms": [
+          [
+            "ae7.com",
+            26
+          ],
+          [
+            "qubu.io",
+            4
+          ],
+          [
+            "gmail.com",
+            1
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 856
+      },
+      {
+        "id": 8,
+        "size": 23,
+        "n_int": 2,
+        "n_ext": 21,
+        "top_words": [
+          "utopia",
+          "ben",
+          "kremenec",
+          "james",
+          "gmt",
+          "atlas"
+        ],
+        "ext_doms": [
+          [
+            "gmail.com",
+            5
+          ],
+          [
+            "stuba.sk",
+            4
+          ],
+          [
+            "atlas.design",
+            3
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-05",
+        "n_emails": 169
+      },
+      {
+        "id": 9,
+        "size": 21,
+        "n_int": 1,
+        "n_ext": 20,
+        "top_words": [
+          "pozvánka",
+          "green",
+          "skgbc",
+          "budov",
+          "pripomienka",
+          "monitoring"
+        ],
+        "ext_doms": [
+          [
+            "skgbc.org",
+            7
+          ],
+          [
+            "vigroup.sk",
+            1
+          ],
+          [
+            "kontrakting.sk",
+            1
+          ]
+        ],
+        "first": "2024-06",
+        "last": "2026-06",
+        "n_emails": 206
+      },
+      {
+        "id": 10,
+        "size": 8,
+        "n_int": 0,
+        "n_ext": 8,
+        "top_words": [
+          "ponuka",
+          "zameraní",
+          "lamelino",
+          "eurovea",
+          "rozpory",
+          "projektovej"
+        ],
+        "ext_doms": [
+          [
+            "d-fs.sk",
+            5
+          ],
+          [
+            "jtre.sk",
+            3
+          ]
+        ],
+        "first": "2024-10",
+        "last": "2026-03",
+        "n_emails": 25
+      }
+    ]
+  },
+  "reference_queries": {
+    "Eurovea": {
+      "community_id": 6,
+      "hit_score": 449,
+      "n_emails_found": 129,
+      "n_direct": 50,
+      "alt_names": [
+        "eurovea",
+        "one",
+        "tower",
+        "gfi",
+        "kcap",
+        "meeting",
+        "lido",
+        "ihla",
+        "jtre",
+        "design",
+        "accepted",
+        "nove"
+      ],
+      "top5_by_hits": [
+        "matis@gfi.sk",
+        "talas@gfi.sk",
+        "blaho@jtre.sk",
+        "mega@gfi.sk",
+        "kastan@jtre.sk"
+      ],
+      "top5_centrality": [
+        "matis@gfi.sk",
+        "kastan@jtre.sk",
+        "blaho@jtre.sk",
+        "hostacna@jtre.sk",
+        "machac@hkltb.sk"
+      ],
+      "community_size": 63,
+      "community_top_words": [
+        "eurovea",
+        "one",
+        "tower",
+        "gfi",
+        "kcap",
+        "meeting",
+        "lido",
+        "ihla"
+      ]
+    },
+    "Tower 220": {
+      "community_id": 6,
+      "hit_score": 355,
+      "n_emails_found": 104,
+      "n_direct": 50,
+      "alt_names": [
+        "eurovea",
+        "one",
+        "tower",
+        "gfi",
+        "kcap",
+        "meeting",
+        "lido",
+        "ihla",
+        "jtre",
+        "design",
+        "accepted",
+        "nove"
+      ],
+      "top5_by_hits": [
+        "talas@gfi.sk",
+        "matis@gfi.sk",
+        "mega@gfi.sk",
+        "blaho@jtre.sk",
+        "hostacna@jtre.sk"
+      ],
+      "top5_centrality": [
+        "matis@gfi.sk",
+        "kastan@jtre.sk",
+        "blaho@jtre.sk",
+        "hostacna@jtre.sk",
+        "machac@hkltb.sk"
+      ],
+      "community_size": 63,
+      "community_top_words": [
+        "eurovea",
+        "one",
+        "tower",
+        "gfi",
+        "kcap",
+        "meeting",
+        "lido",
+        "ihla"
+      ]
+    },
+    "Westend": {
+      "community_id": 4,
+      "hit_score": 709,
+      "n_emails_found": 185,
+      "n_direct": 50,
+      "alt_names": [
+        "westend",
+        "helios",
+        "rezidencia",
+        "vizualizacie",
+        "poslal",
+        "zprávu",
+        "eia",
+        "režim",
+        "apt",
+        "gfi"
+      ],
+      "top5_by_hits": [
+        "palkov@jtre.sk",
+        "kois@gfi.sk",
+        "surmova@jtre.sk",
+        "bryndza@gfi.sk",
+        "kalman@jtre.sk"
+      ],
+      "top5_centrality": [
+        "kois@gfi.sk",
+        "bryndza@gfi.sk",
+        "bratko@jtre.sk",
+        "surmova@jtre.sk",
+        "kalman@jtre.sk"
+      ],
+      "community_size": 76,
+      "community_top_words": [
+        "westend",
+        "helios",
+        "rezidencia",
+        "vizualizacie",
+        "poslal",
+        "zprávu",
+        "eia",
+        "režim"
+      ]
+    },
+    "Patronka 2202": {
+      "community_id": 4,
+      "hit_score": 230,
+      "n_emails_found": 88,
+      "n_direct": 44,
+      "alt_names": [
+        "westend",
+        "helios",
+        "rezidencia",
+        "vizualizacie",
+        "poslal",
+        "zprávu",
+        "eia",
+        "režim",
+        "apt",
+        "gfi"
+      ],
+      "top5_by_hits": [
+        "kois@gfi.sk",
+        "csorgei@gfi.sk",
+        "bryndza@gfi.sk",
+        "palkov@jtre.sk",
+        "kondas@aipweb.sk"
+      ],
+      "top5_centrality": [
+        "kois@gfi.sk",
+        "bryndza@gfi.sk",
+        "bratko@jtre.sk",
+        "surmova@jtre.sk",
+        "kalman@jtre.sk"
+      ],
+      "community_size": 76,
+      "community_top_words": [
+        "westend",
+        "helios",
+        "rezidencia",
+        "vizualizacie",
+        "poslal",
+        "zprávu",
+        "eia",
+        "režim"
+      ]
+    }
+  }
+}
