@@ -14,9 +14,9 @@ Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
 3. **LLM zhrnutie** najnovšej epizódy — ZHRNUTIE + OTVORENÉ (1 call, llama3.1:8b)
 4. **Účastníci deterministicky** — z domén emailov (KNOWN_DOMAINS dict, nie LLM)
 
-**Výsledky na 30-dňovom okne (2026-05-16 – 2026-06-15):**
-- 329 konverzácií v okne → -22 noise → -172 singletony = **135 aktívnych**
-- 25 spracovaných LLM (cap), 110 preskočených (starší, menej aktívni)
+**Výsledky na 30-dňovom okne (2026-05-16 – 2026-06-15) — po filtrovaní:**
+- 329 konverzácií → 24 BULK + 3 SOCIAL + 173 singletony = **129 WORK aktívnych**
+- 25 spracovaných LLM (cap), 104 preskočených (starší, menej aktívni)
 - 1 segmentovaná (AI f1, streak 92m → epizóda 2026-06-09–15 správne detekovaná)
 
 **5 silných výstupov priamo použiteľných:**
@@ -33,10 +33,28 @@ Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
 - Strany z domén — deterministicky spoľahlivé
 
 **Známe problémy na riešenie:**
-1. **Bulk/social presakuje** — party pozvánky, Dalux notifikácie, Recall maily nie sú zachytené noise filterom
+1. ~~**Bulk/social presakuje**~~ — vyriešené: `src/email_filter.py` (2026-06-17), 0 false positives
 2. **LLM halucinuje projekt** — "One Eurovea → projekt MMK Eindhoven" — riešiť deterministicky
 3. **Slabé 8B zhrnutia** — krátke, vágne; budú lepšie s kontextom alebo väčším modelom
-4. **110 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať
+4. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať
+
+### `src/email_filter.py` — deterministický BULK/SOCIAL filter
+
+Znovupoužiteľný modul — bez LLM, čisté regex pravidlá naprieč systémom.
+
+```python
+classify_email_type(email: dict) -> EmailType   # WORK / BULK / SOCIAL
+```
+
+- **BULK**: `from` obsahuje no-reply/noreply/notifications/mailer-daemon/dalux/asana/wetransfer/autodesk; `subject` obsahuje `"Meeting minutes:"`, `"has N updates since"`, `"Recall:"`, `"P0080"`, newsletter, scheduler
+- **SOCIAL**: `subject` obsahuje party, grill, beach, vedro, chill, volejbal, oslava, narodeninov*, bbq
+- **WORK**: všetko ostatné (default — pri pochybnosti nechaj vo WORK)
+
+**Výsledky filtrovania (2026-06-17, 30d okno):**
+- 24 BULK: Dalux P0080/P0051/P0511 auto-notifikácie, Teams/Miro notifikácie, WeTransfer, Recall:, BREEAM newsletter, Autodesk OTP
+- 3 SOCIAL: `Grill chill vedro_Beach party 3`, `parkovisko volejbal`, `Plážový volejbal 2.6.2026`
+- **0 false positives** — všetkých 5 silných WORK výstupov ostalo
+- `active_window.py` loguje každý BULK/SOCIAL riadok pre kontrolu
 
 ---
 

@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
 
+from src.email_filter import classify_email_type, EmailType
+
 load_dotenv()
 
 DB_PATH         = os.environ.get("DB_PATH", "data/emails.db")
@@ -92,21 +94,6 @@ KNOWN_DOMAINS: dict[str, str] = {
     "mading.sk":           "Mading",
 }
 
-# ── noise detection ────────────────────────────────────────────────────────────
-
-_NOISE_SUBJ = re.compile(
-    r"(has \d+ updates? since|you have been mentioned|scheduler|"
-    r"newsletter|unsubscribe|automatick[áa] správ|weekly report|"
-    r"automatic notification)",
-    re.IGNORECASE,
-)
-_NOISE_FROM = re.compile(
-    r"(no-reply|noreply|donotreply|scheduler|newsletter|notification)",
-    re.IGNORECASE,
-)
-
-def _is_noise(subject: str, from_addr: str) -> bool:
-    return bool(_NOISE_SUBJ.search(subject or "") or _NOISE_FROM.search(from_addr or ""))
 
 # ── text cleaning ──────────────────────────────────────────────────────────────
 
@@ -388,12 +375,14 @@ def main() -> None:
 
     print(f"=== KROK B — streak + epizóda ({len(conv_rows)} konverzácií, bez LLM) ===")
 
-    n_noise = n_sing = 0
+    n_bulk = n_social = n_sing = 0
+    filtered_bulk:   list[dict] = []
+    filtered_social: list[dict] = []
     candidates: list[dict] = []
 
     for row in conv_rows:
         cid = row["conversation_id"]
-        # Lightweight load (no body) for streak/noise check
+        # Lightweight load (no body) for streak/filter check
         light = [dict(r) for r in conn.execute("""
             SELECT id, date, subject, from_address
             FROM emails WHERE conversation_id = ? ORDER BY date
@@ -402,8 +391,22 @@ def main() -> None:
             continue
 
         newest = light[-1]
-        if _is_noise(newest.get("subject") or "", newest.get("from_address") or ""):
-            n_noise += 1
+        etype  = classify_email_type(newest)
+
+        if etype == EmailType.BULK:
+            n_bulk += 1
+            filtered_bulk.append({
+                "subject": _norm_subj(newest.get("subject") or ""),
+                "from":    newest.get("from_address") or "?",
+            })
+            continue
+
+        if etype == EmailType.SOCIAL:
+            n_social += 1
+            filtered_social.append({
+                "subject": _norm_subj(newest.get("subject") or ""),
+                "from":    newest.get("from_address") or "?",
+            })
             continue
 
         streak = _active_streak(light)
@@ -428,7 +431,8 @@ def main() -> None:
     n_small = len(candidates) - n_large
     to_llm  = candidates[:MAX_CONVS_LLM]
 
-    print(f"  Noise vynechané          : {n_noise}")
+    print(f"  BULK vynechané           : {n_bulk}")
+    print(f"  SOCIAL vynechané         : {n_social}")
     print(f"  Singletony (<2 mailov)   : {n_sing}")
     print(f"  Aktívnych konverzácií    : {len(candidates)}")
     print(f"    krátke (≤{TOPIC_MIN}m) : {n_small}")
@@ -436,6 +440,18 @@ def main() -> None:
     print(f"  Na LLM: {len(to_llm)}"
           + (f"  (preskočených {len(candidates)-len(to_llm)})" if len(candidates) > MAX_CONVS_LLM else ""))
     print()
+
+    if filtered_bulk:
+        print(f"  --- BULK filter ({len(filtered_bulk)}) ---")
+        for f in filtered_bulk:
+            print(f"    [BULK]   {f['subject'][:55]}  ← {f['from'][:40]}")
+        print()
+
+    if filtered_social:
+        print(f"  --- SOCIAL filter ({len(filtered_social)}) ---")
+        for f in filtered_social:
+            print(f"    [SOCIAL] {f['subject'][:55]}  ← {f['from'][:40]}")
+        print()
 
     # ── KROK C — LLM + uloženie ───────────────────────────────────────────────
     if not dry_run:
