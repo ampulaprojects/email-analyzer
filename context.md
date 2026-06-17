@@ -2,9 +2,61 @@
 
 ---
 
-## AKTUÁLNY STAV — 2026-06-15
+## AKTUÁLNY STAV — 2026-06-17
 
-### Rozšírenie na plný dataset — ROZPRACOVANÉ
+### `src/active_window.py` — HOTOVÝ (prvý "čo sa rieši" nástroj)
+
+Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
+
+**Pipeline (každá aktívna konverzácia):**
+1. **Rozmotaj** od súčasnosti dozadu — streak (stop pri medzere >21d)
+2. **Hybrid segmentácia** dlhých blokov — čas (>6d gap) + téma (LLM) pre bloky >20 mailov
+3. **LLM zhrnutie** najnovšej epizódy — ZHRNUTIE + OTVORENÉ (1 call, llama3.1:8b)
+4. **Účastníci deterministicky** — z domén emailov (KNOWN_DOMAINS dict, nie LLM)
+
+**Výsledky na 30-dňovom okne (2026-05-16 – 2026-06-15):**
+- 329 konverzácií v okne → -22 noise → -172 singletony = **135 aktívnych**
+- 25 spracovaných LLM (cap), 110 preskočených (starší, menej aktívni)
+- 1 segmentovaná (AI f1, streak 92m → epizóda 2026-06-09–15 správne detekovaná)
+
+**5 silných výstupov priamo použiteľných:**
+- `2202_WR_Zapis stretnutia` — Westend parking, ZS dokumentácia
+- `* AI f1` — report výpadok, Project Family refactor (SmartCAD + Milan Illes AI)
+- `One Eurovea - postup povolovania` — zmena ÚR, starý zákon
+- `Tema zimneho pristavu a GFI` — súťaž, verejné obstarávanie
+- `Eurovea_Revit Facade_Draft test` — GFI+KCAP+JTRE Revit model
+
+**Overené pred tým (podkladové moduly):**
+- `conversations.py` — skladanie konverzácií z 3 signálov (header + subject + strany), 20 723 → 14 180 skupín
+- Hybrid segmentácia — 43 raw epizód → 14 čistých, 55 prekryvov → 6 hraničných
+- Dvojkrokový LLM — voľné zhrnutie + identifikácia (lepšie ako prísny JSON)
+- Strany z domén — deterministicky spoľahlivé
+
+**Známe problémy na riešenie:**
+1. **Bulk/social presakuje** — party pozvánky, Dalux notifikácie, Recall maily nie sú zachytené noise filterom
+2. **LLM halucinuje projekt** — "One Eurovea → projekt MMK Eindhoven" — riešiť deterministicky
+3. **Slabé 8B zhrnutia** — krátke, vágne; budú lepšie s kontextom alebo väčším modelom
+4. **110 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať
+
+---
+
+### NOVÝ SMER: knowledge extraction z vlákien
+
+Zásadný posun cieľa: z **retrievalu** (nájdi maily) na **extrakciu poznatkov** (úlohy, rozhodnutia, otvorené veci). Jednotka analýzy = vlákno, nie mail — rieši "OK" maily a fallback problém embeddingov.
+
+**Pipeline stabilná, nedotknutá:**
+- 40k mailov, embed/cluster/label hotové na nomic-embed-text
+- multi-label vrstva `email_topics` hotová (mean+2std, 157k riadkov)
+- baseline 12k zachovaný, bge-m3 prechod odložený (možno zbytočný)
+- graf ⚠️ (viz. sekcia nižšie)
+
+**Otvorené rozhodnutia:**
+1. **8B model nespoľahlivý na štruktúrovaný JSON** — smer: 2-krokový prístup (zhrnutie → štruktúra) alebo silnejší model (70B lokálny / API)?
+2. **thread_id nespoľahlivé ako hranica vlákna** — vlákna sa rozutekávali medzi testami, `%pulsar%` matchol iný thread v 2 behoch
+
+---
+
+### Rozšírenie na plný dataset — PIPELINE HOTOVÁ, GRAF OTVORENÁ OTÁZKA
 
 Cieľ: 12 949 → 40 562 mailov (INBOX + Sent Items od 2018/2019). Baseline zachovaná v `data/emails_12k_baseline.db` + `data/baseline_12k.json`.
 
@@ -15,15 +67,17 @@ Cieľ: 12 949 → 40 562 mailov (INBOX + Sent Items od 2018/2019). Baseline zach
 | body_fetch (27 615 nových) | ok=40 165, empty=397, rozsah 2018–2026 | ✓ |
 | embed (27 615 nových, workers=16) | ok=40 556/40 562, 6 chýb, 96 min | ✓ |
 | cluster (40 556 vektorov) | 549 zhlukov, noise 25.6%, 51 s | ✓ |
-| label (549 zhlukov) | **ROZPRACOVANÝ** — resume-safe, prerušený UnicodeError (opravený) | ⏳ |
+| label (549 zhlukov) | 549/549 olabelovaných | ✓ |
+| graph `--exclude-hubs 10` | 17 komunít, Westend rozbitý (kois vylúčený) | ⚠️ |
+| graph `--exclude-persons tupek` | 13 komunít, catch-all problém | ⚠️ |
 
-**Pokračovanie:** `python -m src.label` (preskočí už olabelované)
+**Ďalší krok — vyriešiť hub exclusion:**
+Pozri sekciu "Graf — otvorená otázka" nižšie.
 
-**Ďalší kroky:**
-1. Dokončiť `python -m src.label`
-2. Súhrn clusteringu vs 12k baseline
-3. `python -m src.graph --exclude-hubs 10` na 40k
-4. `python -m src.snapshot` → porovnanie s `data/baseline_12k.json`
+### Clustering 40k — kľúčové čísla
+- 549 zhlukov (bolo 202 na 12k), noise 25.6% (stabilné)
+- Klingerka: 21 zhlukov, Eurovea/Tower: 17, Westend: 5, Patronka: 2
+- Staré projekty 2018–2020 prítomné: Royal Palace, Skypark, Klingerky Farby, Helios, CulR, ELA
 
 ### Fáza 1 — HOTOVÁ
 - 12 949 emailov stiahnutých (INBOX + Sent Items, posledné 2 roky)
@@ -153,6 +207,116 @@ Spustenie: `python -m src.graph --exclude-hubs 10`
 ### Poznámky do budúcnosti
 - **Porovnanie embedding modelov**: otestovať `mxbai-embed-large`, `all-minilm` a porovnať kvalitu clusteringu vs. `nomic-embed-text`
 - 25 % noise je relatívne vysoké — vyskúšať `--min-cluster-size 10` pre menej noise
+
+---
+
+## 2026-06-16 — Extrakcia poznatkov z vlákien (prieskum)
+
+### Čo bolo urobené
+Tri exploratorické testy na 6 vláknach (Westend, Patronka renders, ISTER TOWER, Ihla svetlotechnika, MSH, Pulsar). Nič sa neukladá do DB — len meranie čo LLM zachytí.
+
+**Embedding benchmark (nomic vs bge-m3 vs qwen3-embedding:4b):**
+
+| Model | Dim | Čas | RelM | UnrelM | GAP |
+|---|---|---|---|---|---|
+| nomic-embed-text | 768 | 574s | 0.738 | 0.661 | 0.078 |
+| bge-m3 | 1024 | 607s | 0.556 | 0.465 | 0.091 |
+| qwen3-embedding:4b | 2560 | 608s | 0.566 | 0.464 | 0.102 |
+
+GAP = mean(súvisiace páry) − mean(nesúvisiace). Nomic potvrdzuje hubness (úzky rozsah, mean 0.723). Rozhodnutie: bge-m3 prechod odložený — ak ideme cez LLM extrakciu, separácia embeddingov je menej kritická.
+
+**Multi-label vrstva (`email_topics`):**
+- Stratégia mean+2std, fallback top-1 (low_confidence=1)
+- 40 556 mailov → 157 006 riadkov v 0.9s (pure numpy maticové násobenie)
+- Distribúcia: 52.3% má 1 tému, 13.9% má 2, 8.7% má 3; dlhý chvost až 38 tém
+- Low-confidence (bez čistého signálu): 9 258 mailov (22.8%)
+
+**Test 1 — voľné LLM zhrnutia (`src/explore_threads.py`):**
+llama3.1:8b so slobodným promptom vrátila obsahovo bohaté zhrnutia. Vynoril sa prirodzený typ poznatkov (bez predpisu): o čom to bolo, kto bol zapojený, čo sa riešilo.
+
+**Test 2 — štruktúrovaný JSON extrakt (`src/extract_threads.py`):**
+Prompt s pevnou schémou:
+
+```json
+{
+  "o_com_to_bolo": ["odsek 1", "odsek 2 ak viacero tém"],
+  "ucastnici": [{"meno": "...", "strana": "GFI / JTRE / externý / iné"}],
+  "ulohy": [{"co": "...", "kto_ma_spravit": "...", "zadal": "...", "termin": "..."}],
+  "rozhodnutia": [],
+  "otvorene": [],
+  "parametre": []
+}
+```
+
+**Výsledky testu 2 — čo funguje a čo nie:**
+
+| Vlákno | o_com_to_bolo | úlohy | rozhodnutia | otvorené | parametre |
+|---|---|---|---|---|---|
+| Westend (44 m) | vágne (2 generické odsek) | (prázdne) | ∅ | ∅ | ∅ |
+| Patronka renders (30 m) | OK | 2 (vágne, oba rovnaké) | ∅ | ∅ | ∅ |
+| ISTER TOWER (37 m) | **JSON PARSE ERROR** — extra polia mimo schémy | — | — | — | — |
+| Ihla svetlotechnika (51 m) | 2 odsek OK | **5 úloh s aktérmi+termínmi** | ∅ | ∅ | ∅ |
+| MSH (24 m) | 2 odsek OK | 2 úlohy | ∅ | ∅ | ∅ |
+| Pulsar_M201 (43 m) | 1 vágny odsek | 2 úlohy | ∅ | ∅ | ∅ |
+
+**Záver testu 2:**
+- Štruktúra ochudobnila obsah — rozhodnutia/otvorené/parametre prázdne vo VŠETKÝCH vláknach
+- Úlohy fungujú dobre keď sú v texte explicitné (Ihla: 5 úloh s aktérmi a termínmi)
+- 8B model nespoľahlivý pri prísnom JSON: ISTER TOWER vygeneroval extra polia a neuzavrel JSON
+- Viacnásobné odsek `o_com_to_bolo` funguje ale obsah je generický
+
+**Emergovaná cieľová štruktúra extraktu na vlákno** (nie predpísaná, vyplynula z testovania):
+- `o_com_to_bolo` — viac odsekov ak rozbiehavé vlákno
+- `ucastnici` — meno + strana (GFI / JTRE / externý-\<doména\>)
+- `ulohy` — kto / komu / čo / termín
+- `rozhodnutia`, `otvorené`, `parametre` — prázdne ak nie sú
+- Jeden záznam na vlákno, nie samostatná DB vrstva
+
+**Ďalší krok — vyriešiť model + 2-krokový prístup:**
+- Kandidát: 2 kroky — krok 1 voľné zhrnutie, krok 2 štruktúrovanie zo zhrnutia
+- Alebo: silnejší model (lokálny 70B / API) ktorý spoľahlivo generuje JSON
+- Pred tým: vyriešiť čo je "jedno vlákno" (thread_id nie je spoľahlivé)
+
+---
+
+## 2026-06-16 — Graf na 40k — hub exclusion problém
+
+### Čo bolo urobené
+- `python -m src.label` — dokončený (83 zvyšných zhlukov, 0 chýb)
+- `python -m src.graph --exclude-hubs 10 --output data/communities.json` — spustený na 40k
+- `--exclude-persons` parameter pridaný do `src/graph.py`
+- `python -m src.graph --exclude-persons tupek@gfi.sk --output data/comm_owneronly.json` — BEH X
+
+### Výsledky grafov (porovnanie)
+
+| Beh | Vylúčení | Komunít | Najväčšia | Westend? | Eurovea+Tower spolu? |
+|---|---|---|---|---|---|
+| 12k `--exclude-hubs 10` | 10 (kois OSTAL) | 11 | 160 osôb | ✓ vlastná | ✓ |
+| 40k `--exclude-hubs 10` | 10 (kois VYLÚČENÝ #10) | 17 | 497 osôb | ✗ rozbitý | ✓ |
+| 40k `--exclude-persons tupek` | len tupek | 13 | 576 osôb | ✗ catch-all | ✗ |
+
+### Koreň problému
+Na 40k datasete `kois@gfi.sk` vzrástol na #10 v degree centralite (0.208) — na 12k tam nebol. `--exclude-hubs 10` ho preto vylúčilo, čo rozbilo Westend komunitu (kois bol jej ťažiskom). Vylúčenie len vlastníka schránky tiež nefunguje — interní super-huby (jagrova, grecmal, nedoba, franko, lenka) absorbujú všetky projekty do catch-all komunity.
+
+### Otvorená otázka — optimálny počet vylúčených hubov
+Hypotéza: `--exclude-hubs 7` alebo `--exclude-hubs 6` by zachovalo kois v grafe a Westend by sa znova vynoril.
+```
+Top-10 hubov na 40k (v poradí centrality):
+  1. tupek@gfi.sk      0.942  ← vždy vylúčiť
+  2. jagrova@gfi.sk    0.318
+  3. frimmer@gfi.sk    0.306
+  4. grecmal@gfi.sk    0.302
+  5. nedoba@gfi.sk     0.275
+  6. franko@gfi.sk     0.251
+  7. lenka@gfi.sk      0.246
+  8. kopcak@gfi.sk     0.229
+  9. skuta@gfi.sk      0.224
+ 10. kois@gfi.sk       0.208  ← problém: vylúčenie rozbíja Westend
+```
+Ďalší krok: otestovať `--exclude-hubs 6` (vylúči top 6 + tupek, kois ostane).
+
+### data/communities.json — aktuálny stav
+Súbor obsahuje výsledok `--exclude-hubs 10` (17 komunít). Pre `ask.py` je to použiteľné — Eurovea+Tower funguje (#6), Westend je len ako téma v komunite #2.
 
 ---
 

@@ -375,9 +375,11 @@ def main() -> None:
                         help=f"Min community size (default {MIN_COMMUNITY_SIZE})")
     parser.add_argument("--show-members",  action="store_true",
                         help="Print all members of each community")
-    parser.add_argument("--exclude-hubs",  type=int, default=0,
+    parser.add_argument("--exclude-hubs",    type=int, default=0,
                         help="Exclude top N hub nodes before community detection (0 = off)")
-    parser.add_argument("--output",        default=None,
+    parser.add_argument("--exclude-persons", default=None,
+                        help="Comma-separated list of email addresses to exclude explicitly")
+    parser.add_argument("--output",          default=None,
                         help="Save communities to JSON (e.g. data/communities.json)")
     args = parser.parse_args()
 
@@ -390,6 +392,15 @@ def main() -> None:
     if args.exclude_hubs > 0:
         print(f"\n=== Pruning top-{args.exclude_hubs} hubov + always {list(ALWAYS_EXCLUDE)} ===")
         G = prune_hubs(G, args.exclude_hubs)
+
+    if args.exclude_persons:
+        persons = [p.strip().lower() for p in args.exclude_persons.split(",")]
+        removed = [p for p in persons if p in G.nodes()]
+        G = G.copy()
+        G.remove_nodes_from(removed)
+        print(f"\n=== Explicit exclude-persons ({len(removed)} uzlov odstranených) ===")
+        for p in removed:
+            print(f"  {p}")
 
     print("\n=== Detekcia komunít ===")
     raw  = detect_communities(G)
