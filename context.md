@@ -4,6 +4,17 @@
 
 ## AKTUÁLNY STAV — 2026-06-17
 
+### Hotové dnes
+- `src/active_window.py` — nástroj "čo sa rieši", 30-dňové okno, pipeline funguje
+- `src/email_filter.py` — deterministický BULK/SOCIAL filter, 0 false positives
+- 329 konverzácií → **129 WORK aktívnych**, 25 LLM spracovaných, 5 silných výstupov použiteľných priamo
+
+### Ďalší krok (budúca session)
+1. **Halucinácia projektu** — LLM vymyslel "MMK Eindhoven" namiesto "One Eurovea". Riešiť deterministicky: odvodiť projekt z kódu v subjecte (`2604`, `2202`...), clustra alebo komunity — nie LLM hadaním.
+2. **Kvalita 8B zhrnutí** (vágne, krátke) — súvisí s rozhodnutím o silnejšom modeli; odložené (bge-m3/qwen3 test bol odložený predtým).
+
+---
+
 ### `src/active_window.py` — HOTOVÝ (prvý "čo sa rieši" nástroj)
 
 Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
