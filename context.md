@@ -4,14 +4,14 @@
 
 ## AKTUÁLNY STAV — 2026-06-18
 
-### Kde sme skončili (2026-06-17)
-- `src/active_window.py` + `src/email_filter.py` — commitnuté, pushnuté
-- Pipeline "čo sa rieši" funguje: 329 konverzácií → 129 WORK aktívnych, 25 LLM, 5 silných výstupov čistých
-- Bulk/social filter: 24 BULK (Dalux, Teams, Miro...) + 3 SOCIAL (party, volejbal) — 0 false positives
+### Hotové dnes (2026-06-18)
+- `src/project_id.py` — deterministická identifikácia projektu, 0 halucinácií
+- `active_threads` tabuľka rozšírená o `project` + `project_source` polia
+- Princíp potvrdený naprieč systémom: tvrdé signály deterministicky, LLM len porozumenie
 
-### Ďalší krok — táto session
-1. **Deterministická identifikácia projektu** — LLM halucinoval "MMK Eindhoven" namiesto "One Eurovea". Odvodiť projekt z kódu v subjecte (`2604`, `2202`...) alebo z komunity/clustra — nie LLM. Pridat `project` pole do `active_threads`.
-2. *(odložené)* **Kvalita 8B zhrnutí** — súvisí s rozhodnutím o silnejšom modeli.
+### Ďalší krok — budúca session
+1. *(odložené)* **Kvalita 8B zhrnutí** — vágne, krátke; súvisí s rozhodnutím o silnejšom modeli.
+2. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať.
 
 ---
 
@@ -43,11 +43,35 @@ Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
 - Dvojkrokový LLM — voľné zhrnutie + identifikácia (lepšie ako prísny JSON)
 - Strany z domén — deterministicky spoľahlivé
 
-**Známe problémy na riešenie:**
-1. ~~**Bulk/social presakuje**~~ — vyriešené: `src/email_filter.py` (2026-06-17), 0 false positives
-2. **LLM halucinuje projekt** — "One Eurovea → projekt MMK Eindhoven" — riešiť deterministicky
-3. **Slabé 8B zhrnutia** — krátke, vágne; budú lepšie s kontextom alebo väčším modelom
-4. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať
+**Deterministická vrstva (bez LLM):**
+- Strany z domén (`KNOWN_DOMAINS`) ✓
+- Bulk/social filter (`email_filter.py`) ✓
+- Projekt z kódu/clustra/názvu (`project_id.py`) ✓
+
+**LLM robí len:**
+- Čo sa rieši (ZHRNUTIE)
+- Čo je otvorené (OTVORENÉ)
+
+**Zostatok:**
+1. ~~**Bulk/social presakuje**~~ — vyriešené `email_filter.py` (2026-06-17)
+2. ~~**LLM halucinuje projekt**~~ — vyriešené `project_id.py` (2026-06-18)
+3. **Slabé 8B zhrnutia** — odložené; súvisí s rozhodnutím o silnejšom modeli
+4. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25
+
+### `src/project_id.py` — deterministická identifikácia projektu
+
+Bez LLM — tri signály v poradí spoľahlivosti:
+
+1. **Názov v subjecte [N]** — regex na známe projektové názvy: One Eurovea, Tower 220, Westend, Lido, Klingerka, Patronka, Pasienky, Ihla, Helios, Skypark, Pulsar, Fuxton, Vydrica, Zimný prístav
+2. **Kód v subjecte [C]** — 4-ciferné GFI kódy: `2202`→Westend, `2604`→One Eurovea, `2501`→VH, `2607`→Lido...
+3. **Cluster label [K]** — dominantný cluster konverzácie (fallback)
+4. **"neznámy" [?]** — ak nič nesedí; NEHÁDAJ, NEVYMÝŠĽAJ
+
+**Výsledky (25 konverzácií, 2026-06-18):**
+- 12× [N] názov, 5× [C] kód, 2× [K] cluster, 6× [?] neznámy (všetky správne — interné veci bez projektového kontextu)
+- `One Eurovea - latest presentation` → **One Eurovea [N]** (nie "MMK Eindhoven")
+- `T220_stretnutie KONE` → **Tower 220 [N]** (bug s `\b` + `_` opravený)
+- `Tema zimneho pristavu a GFI` → **Zimný prístav [N]** (flexibilný regex)
 
 ### `src/email_filter.py` — deterministický BULK/SOCIAL filter
 
