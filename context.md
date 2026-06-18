@@ -2,16 +2,16 @@
 
 ---
 
-## AKTUÁLNY STAV — 2026-06-17
+## AKTUÁLNY STAV — 2026-06-18
 
-### Hotové dnes
-- `src/active_window.py` — nástroj "čo sa rieši", 30-dňové okno, pipeline funguje
-- `src/email_filter.py` — deterministický BULK/SOCIAL filter, 0 false positives
-- 329 konverzácií → **129 WORK aktívnych**, 25 LLM spracovaných, 5 silných výstupov použiteľných priamo
+### Kde sme skončili (2026-06-17)
+- `src/active_window.py` + `src/email_filter.py` — commitnuté, pushnuté
+- Pipeline "čo sa rieši" funguje: 329 konverzácií → 129 WORK aktívnych, 25 LLM, 5 silných výstupov čistých
+- Bulk/social filter: 24 BULK (Dalux, Teams, Miro...) + 3 SOCIAL (party, volejbal) — 0 false positives
 
-### Ďalší krok (budúca session)
-1. **Halucinácia projektu** — LLM vymyslel "MMK Eindhoven" namiesto "One Eurovea". Riešiť deterministicky: odvodiť projekt z kódu v subjecte (`2604`, `2202`...), clustra alebo komunity — nie LLM hadaním.
-2. **Kvalita 8B zhrnutí** (vágne, krátke) — súvisí s rozhodnutím o silnejšom modeli; odložené (bge-m3/qwen3 test bol odložený predtým).
+### Ďalší krok — táto session
+1. **Deterministická identifikácia projektu** — LLM halucinoval "MMK Eindhoven" namiesto "One Eurovea". Odvodiť projekt z kódu v subjecte (`2604`, `2202`...) alebo z komunity/clustra — nie LLM. Pridat `project` pole do `active_threads`.
+2. *(odložené)* **Kvalita 8B zhrnutí** — súvisí s rozhodnutím o silnejšom modeli.
 
 ---
 
