@@ -22,6 +22,7 @@ import requests
 from dotenv import load_dotenv
 
 from src.email_filter import classify_email_type, EmailType
+from src.project_id  import identify_project
 
 load_dotenv()
 
@@ -306,11 +307,28 @@ def _llm_summarize(thread_text: str) -> tuple[str, str]:
     return (m_sum.group(1).strip()  if m_sum  else out.strip(),
             m_open.group(1).strip() if m_open else "—")
 
+# ── project identification helpers ────────────────────────────────────────────
+
+def _dominant_cluster_label(conn: sqlite3.Connection, conversation_id: int) -> str | None:
+    """Return the label of the most-common cluster across a conversation's emails."""
+    row = conn.execute("""
+        SELECT cl.label, COUNT(*) as cnt
+        FROM emails e
+        JOIN email_clusters ec ON ec.email_id = e.id
+        JOIN clusters cl       ON cl.id = ec.cluster_id
+        WHERE e.conversation_id = ?
+        GROUP BY cl.label
+        ORDER BY cnt DESC
+        LIMIT 1
+    """, (conversation_id,)).fetchone()
+    return row[0] if row else None
+
 # ── DB ─────────────────────────────────────────────────────────────────────────
 
 def _ensure_table(conn: sqlite3.Connection) -> None:
+    conn.execute("DROP TABLE IF EXISTS active_threads")
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS active_threads (
+        CREATE TABLE active_threads (
             conversation_id  INTEGER PRIMARY KEY,
             subject          TEXT,
             last_activity    TEXT,
@@ -323,6 +341,8 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
             participants     TEXT,
             firms            TEXT,
             is_segmented     INTEGER,
+            project          TEXT,
+            project_source   TEXT,
             computed_at      TEXT
         )
     """)
@@ -331,13 +351,16 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
 
 def _db_save(conn: sqlite3.Connection, row: dict) -> None:
     conn.execute("""
-        INSERT OR REPLACE INTO active_threads VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT OR REPLACE INTO active_threads
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (row["conversation_id"], row["subject"], row["last_activity"],
           row["n_window"],        row["n_streak"],
           row["episode_from"],    row["episode_to"],
           row["summary"],         row["open_points"],
           row["participants"],    row["firms"],
-          int(row["is_segmented"]), row["computed_at"]))
+          int(row["is_segmented"]),
+          row["project"],         row["project_source"],
+          row["computed_at"]))
     conn.commit()
 
 # ── main ───────────────────────────────────────────────────────────────────────
@@ -490,7 +513,13 @@ def main() -> None:
         ep_text           = _build_text(ep["emails"], MAX_EP_CHARS)
         summary, open_pts = _llm_summarize(ep_text)
 
-        print(f"  → {summary[:160]}")
+        # Deterministic project identification — no LLM guessing
+        all_subjects    = [e.get("subject") or "" for e in full]
+        cluster_label   = _dominant_cluster_label(conn, cid)
+        project, proj_src = identify_project(all_subjects, cluster_label)
+
+        src_tag = {"name": "N", "code": "C", "cluster": "K", "unknown": "?"}[proj_src]
+        print(f"  → [{src_tag}] {project}  |  {summary[:130]}")
         if open_pts and open_pts != "—":
             print(f"     Otvorené: {open_pts[:120]}")
         print()
@@ -508,6 +537,8 @@ def main() -> None:
             "participants":    _fmt_participants(firm_map),
             "firms":           "|".join(sorted(firm_map)),
             "is_segmented":    ep["segmented"],
+            "project":         project,
+            "project_source":  proj_src,
             "computed_at":     computed_at,
         }
         if not dry_run:
@@ -517,22 +548,28 @@ def main() -> None:
     # ── Výsledný sumár ────────────────────────────────────────────────────────
     n_seg   = sum(1 for r in results if r["is_segmented"])
     n_short = len(results) - n_seg
+    from collections import Counter
+    src_counts = Counter(r["project_source"] for r in results)
 
     print()
     print("=" * 72)
     print(f"  ČO SA RIEŠI — {window_start} – {max_date[:10]}")
     print(f"  {len(results)} konverzácií  |  {n_seg} segmentovaných  |  {n_short} krátkych")
+    print(f"  Projekt zdroj: názov={src_counts['name']} kód={src_counts['code']} "
+          f"cluster={src_counts['cluster']} neznámy={src_counts['unknown']}")
     print("=" * 72)
     print()
 
     for r in results:
         seg_tag  = " [SEG]" if r["is_segmented"] else ""
         ep_range = f"{r['episode_from']} – {r['episode_to']}"
+        src_tag  = {"name": "N", "code": "C", "cluster": "K", "unknown": "?"}[r["project_source"]]
         print(f"{'─'*72}")
-        print(f"  {r['subject'][:60]}{seg_tag}")
+        print(f"  {r['subject'][:55]}{seg_tag}")
+        print(f"  projekt: {r['project']} [{src_tag}]")
         print(f"  {r['last_activity']}  |  okno:{r['n_window']}m  "
               f"streak:{r['n_streak']}m  |  ep: {ep_range}")
-        print(f"  {r['participants'][:130]}")
+        print(f"  {r['participants'][:120]}")
         print(f"{'─'*72}")
         print(f"  {r['summary']}")
         if r["open_points"] and r["open_points"] != "—":
