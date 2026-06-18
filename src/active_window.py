@@ -98,25 +98,62 @@ KNOWN_DOMAINS: dict[str, str] = {
 
 # ── text cleaning ──────────────────────────────────────────────────────────────
 
+# Inline quote-block boundaries: fire on the raw body string (not line-by-line)
+# to handle Outlook blobs where quoted history is inlined on one long line.
+# Everything from the first match position to end-of-body is discarded.
+_QUOTE_CUTS: list[re.Pattern] = [
+    # Outlook horizontal rule + header: "__________ Od: ..." / "______ From: ..."
+    re.compile(r"_{4,}[^A-Za-z]{0,10}(?:Od|From)\s*:", re.IGNORECASE),
+    # Outlook English inline header sequence: "From: Name <x@y> Sent: ..."
+    re.compile(r"\bFrom\s*:\s*[^\n]{2,80}?\bSent\s*:", re.IGNORECASE),
+    # Outlook Slovak inline header sequence: "Od: Name <x@y> Odoslané: ..."
+    re.compile(r"\bOd\s*:\s*[^\n]{2,80}?Odoslan", re.IGNORECASE),
+    # Gmail Slovak date-time marker: "po/ut/st/št/pi/so/ne DD. M. YYYY o HH:MM"
+    re.compile(
+        r"\b(?:po|ut|st|št|pi|so|ne)\s+\d{1,2}\s*\.\s*\d{1,2}\s*\.\s*\d{4}"
+        r"\s+o\s+\d{1,2}:\d{2}",
+        re.IGNORECASE,
+    ),
+    # Gmail English: "On Mon, Jun 1, 2026 at 10:41"
+    re.compile(r"\bOn\s+\w{2,3},?\s+\w+\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}",
+               re.IGNORECASE),
+    # Classic separator line
+    re.compile(r"[-_]{5,}\s*(?:Original|Forwarded|Pôvodná)", re.IGNORECASE),
+]
+
 _SIG = re.compile(
-    r"^(-{2,}|_{10,}|S pozdravom|Best regards|Regards,|Kind regards|"
-    r"Sent from|Poslan[éo] z|This e-?mail|CONFIDENTIAL)",
+    r"^(-{2,}|_{4,}|S pozdravom|Pozdravom|Best regards|Regards,|Kind regards|"
+    r"Sent from|Poslan[éo] z|This e-?mail|CONFIDENTIAL|S úctou)",
     re.IGNORECASE,
 )
-_FWDHDR = re.compile(r"^(Od|From|Komu|To|Predmet|Subject|Dátum|Date|Sent|CC):\s",
-                     re.IGNORECASE)
+_FWDHDR = re.compile(
+    r"^(Od|Odoslané|From|Komu|To|Predmet|Subject|Dátum|Date|Sent|Kópia|CC)\s*:",
+    re.IGNORECASE,
+)
 _FWDSEP = re.compile(r"^-{5,}\s*(Original|Forwarded|Pôvodná)", re.IGNORECASE)
 _PREFIX = re.compile(
     r"^(Re|RE|Fwd|FW|Fw|Odp|Odp\.|VS|AW)\s*[:\s]\s*", re.IGNORECASE
 )
 
+
 def _clean_body(text: str) -> str:
+    if not text:
+        return ""
+    # Step 1: truncate at the earliest inline quote-block boundary.
+    cut = len(text)
+    for pat in _QUOTE_CUTS:
+        m = pat.search(text)
+        if m and m.start() < cut:
+            cut = m.start()
+    text = text[:cut]
+
+    # Step 2: line-level signature + forward-header stripping.
     lines, sig = [], False
     for line in text.splitlines():
         s = line.strip()
-        if not sig and (_SIG.match(s) or s in ("--", "— ")):
+        if not sig and (_SIG.match(s) or s in ("--", "—", "— ")):
             sig = True
-        if sig or s.startswith(">") or _FWDHDR.match(line) or _FWDSEP.match(s):
+        if sig or s.startswith(">") or _FWDHDR.match(s) or _FWDSEP.match(s):
             continue
         lines.append(line)
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()

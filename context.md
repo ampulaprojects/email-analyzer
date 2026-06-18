@@ -8,10 +8,39 @@
 - `src/project_id.py` — deterministická identifikácia projektu, 0 halucinácií
 - `active_threads` tabuľka rozšírená o `project` + `project_source` polia
 - Princíp potvrdený naprieč systémom: tvrdé signály deterministicky, LLM len porozumenie
+- **Cleaner opravený** — `_clean_body` teraz odstraňuje citované reply chains (inline `From:/Od:` bloky, Gmail `po DD.MM.YYYY o HH:MM`, Outlook `_{4,}` separátory) → dramatický pokles šumu (CID=14125: 16k→5,7k zn, CID=14129: 2,8k→0,4k zn)
+- **CHECKS opravené** — slovenské varianty pridané; boli anglocentrické a krivili meranie (`"PM"` vs `"parkovacích miest"`, `"machine room"` vs `"strojovňa"`)
+- **Model test** (čistý vstup, spravodlivé meradlo): 8B=9/25, Mistral-small=13/25, **Claude Haiku=18/25**
+- **API kľúče** pridané do `.env`: `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`
+
+### Koreň problému s kvalitou zhrnutí — diagnostikovaný a opravený
+- Problém **nebol** veľkosť modelu (llama3.3:70B nepomohol, skóre rovnaké ako 8B)
+- Koreň: cleaner neodstraňoval quoted reply chains → model čítal tú istú vetu 5–7× a strácal sa
+- Dôkaz: 13/13 testovaných faktov bolo fyzicky v texte; žiadny nebol odrezaný capom
+- Oprava cleanera → 8B zlepšil z 4/27 → 9/25 (bez výmeny modelu)
+
+### Výsledky model testu (čistý vstup, 6 CIDov, 25 faktov)
+
+| Model | Skóre | Náklady (130 konv/deň) | Súkromie |
+|-------|-------|------------------------|---------|
+| llama3.1:8b lokálne | 9/25 (36%) | zadarmo | 100% |
+| Mistral-small API | 13/25 (52%) | ~$2.60/mes | GDPR/EÚ |
+| **Claude Haiku API** | **18/25 (72%)** | **~$15/mes** | US API |
+
+Haiku zvládol CID=14052 (11 mailov): 1/6→5/6. Bez halucinácie "MMK Eindhoven" (projekt_id.py + prompt).
+8B spoľahlivý len pod ~4k znakov / ~6 mailov; nad tým nestabilný (iné fakty medzi behmi).
+
+### Otvorené rozhodnutia (premyslieť pred nasadením)
+1. **Model do active_window.py:**
+   - A) Haiku na všetko — jednoduché, $15/mes, najlepšia kvalita
+   - B) Hybrid: 8B pre epizódy <4k zn, Haiku pre dlhé — lacnejšie, zložitejšie
+   - C) Mistral — GDPR/EÚ ak je to požiadavka, $2.60/mes, menej stabilný
+2. **CID=14125 (16 tém, 5,7k)** odolal VŠETKÝM modelom (2/5) → nie model, ale komplexnosť; dlhé konverzácie s mnohými témami treba segmentovať (ako AI f1) pred zhrnutím
+3. **CID=13753** — čísla 930/54/175mm chýbajú aj Haiku → pravdepodobne v prílohe (DWG/PDF), nie v tele mailu; prvý reálny prípad Type B (chýbajúce prílohy)
 
 ### Ďalší krok — budúca session
-1. *(odložené)* **Kvalita 8B zhrnutí** — vágne, krátke; súvisí s rozhodnutím o silnejšom modeli.
-2. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať.
+1. **Nasadiť model** do `active_window.py` — rozhodnúť A/B/C vyššie a commitnúť
+2. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25; zvýšiť alebo dávkovať
 
 ---
 
@@ -55,7 +84,7 @@ Nástroj na 30-dňové okno mailov. Ukladá do tabuľky `active_threads`.
 **Zostatok:**
 1. ~~**Bulk/social presakuje**~~ — vyriešené `email_filter.py` (2026-06-17)
 2. ~~**LLM halucinuje projekt**~~ — vyriešené `project_id.py` (2026-06-18)
-3. **Slabé 8B zhrnutia** — odložené; súvisí s rozhodnutím o silnejšom modeli
+3. ~~**Slabé zhrnutia**~~ — koreň (quoted chains) opravený v cleaneri; Claude Haiku 18/25; nasadenie TBD
 4. **104 konverzácií preskočených** — cap MAX_CONVS_LLM=25
 
 ### `src/project_id.py` — deterministická identifikácia projektu
